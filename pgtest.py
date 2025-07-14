@@ -22,7 +22,7 @@ def make_connection(message: str = "Database connection was established!. Let's 
         try:
             # create connection with fastapi database
             conn = psycopg2.connect(host="localhost", database="fastapi", user="postgres",
-                                    password="catdogq", cursor_factory=RealDictCursor)
+                                    password="password123", cursor_factory=RealDictCursor)
 
             logger.info(f"{__name__}: {message}")
             cursor = conn.cursor()
