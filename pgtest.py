@@ -1,12 +1,13 @@
 import time
 import logging
+from tkinter import BooleanVar
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 """
 Define logger code for printing logging output as a formatted and pretty style. 
 """
-
 logger = logging.getLogger(__name__)
 FORMAT = "[%(filename)s:%(lineno)s - %(asctime)s - %(levelname)s - %(funcName)15s() ] %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -37,7 +38,7 @@ def display_table(conn, cursor):
     Retrieving records from the database, post table.
     """
     cursor.execute("""SELECT * FROM posts ORDER BY id ASC;""")
-    get_posts = cursor.fetchall()
+    # get_posts = cursor.fetchall()
     logger.info(f"{__name__}: {cursor.rowcount} records are fetched!")
 
     # """
@@ -54,34 +55,41 @@ def display_table(conn, cursor):
     #     logger.info(record)
 
 
-def delete_post(conn, cursor, post_id: int):
+def delete_post(conn, cursor, post_id: int) -> bool:
     """
     Delete a record from the post table.
     """
+    if is_deleted(conn, cursor, post_id):
+        logger.error(f"{__name__}: Requested post with id {post_id} was not found.")
+        exit(1)
+
     cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *;""", (str(post_id),))
     deleted_post = cursor.fetchone()
     logger.info(f"{__name__}: Deleted post: {deleted_post}")
     conn.commit()
     logger.info(f"{__name__}: Deletion operation was commited into database.")
 
-def check_deletion(conn, cursor, post_id: int):
+
+def is_deleted(conn, cursor, post_id: int):
     """
     Check if a record is deleted from the post table.
     """
     cursor.execute("""SELECT * FROM posts WHERE id = %s;""", (str(post_id),))
     if cursor.rowcount == 0:
         logger.info(f"{__name__}: Post id {str(post_id)} was successfully deleted.")
+        return True
     else:
         logger.error(f"{__name__}: An error occurred while deleting post {str(post_id)}.")
+        return False
 
 
 if __name__ == '__main__':
-    conn, cursor = make_connection(message="Retrieving connection was established! Keep going :)")
+    conn, cursor = make_connection(message="Retrieving table data connection was established! Keep going :)")
     display_table(conn, cursor)
 
     conn, cursor = make_connection(message="Deleting connection was established! Keep going :)")
-    post_id: int = 13
+    post_id: int = 12
     delete_post(conn, cursor, post_id)
 
     conn, cursor = make_connection(message="Checking of deletion connection was established! Keep going :)")
-    check_deletion(conn, cursor, post_id)
+    is_deleted(conn, cursor, post_id)

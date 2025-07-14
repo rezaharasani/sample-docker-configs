@@ -1,22 +1,19 @@
 import time
-from datetime import datetime
-
 from fastapi import FastAPI, status, Response, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
 
-from sqlalchemy.dialects.mysql import insert
-
 app = FastAPI()
 
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
+"""
+Define logger code for printing logging output as a formatted and pretty style. 
+"""
 logger = logging.getLogger(__name__)
+FORMAT = "[%(filename)s:%(lineno)s - %(asctime)s - %(levelname)s - %(funcName)15s() ] %(message)s"
+logging.basicConfig(format=FORMAT)
+logger.setLevel(logging.INFO)
 
 
 class Post(BaseModel):
@@ -29,13 +26,13 @@ while True:
     try:
         # create connection with fastapi database
         conn = psycopg2.connect(host="localhost", database="fastapi", user="postgres",
-                                password="catdogq", cursor_factory=RealDictCursor)
+                                password="password123", cursor_factory=RealDictCursor)
         cursor = conn.cursor()
-        logger.info("Database connection was successful!")
+        logger.info(f"{__name__}: Database connection was established!. Let's go :)")
         break
 
     except Exception as error:
-        logger.error("Connecting to database failed.", error)
+        logger.error(f"{__name__}: Connecting to database failed.", error)
         time.sleep(2)
 
 my_posts = [
@@ -104,29 +101,32 @@ def get_post(post_id: int):
     post = cursor.fetchone()
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id {post_id} was not found.")
+                            detail=f"post with id {post_id} does not found.")
     return {"response": post}
 
 
 @app.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(post_id: int):
-    cursor.execute("""DELETE FROM posts WHERE id = %s;""", (str(post_id),))
+    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *;""", (str(post_id),))
+    deleted_post = cursor.fetchone()
+    conn.commit()
 
-    # index = find_index_post(post_id)
-    if index is None:
+    if deleted_post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id {post_id} was not found.")
-    my_posts.pop(index)
+                            detail=f"post with id {post_id} does not found.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.put("/posts/{post_id}", status_code=status.HTTP_201_CREATED)
 def update_post(post_id: int, post: Post):
-    index = find_index_post(post_id)
-    if index is None:
+    cursor.execute(
+        """UPDATE posts SET title = %s, content = %s, published = %s 
+                WHERE id = %s RETURNING *;""",
+        (post.title, post.content, post.published, str(post_id)))
+    updated_post = cursor.fetchone()
+    conn.commit()
+
+    if updated_post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id {post_id} was not found.")
-    post_dict = post.dict()
-    post_dict['id'] = post_id
-    my_posts[index] = post_dict
-    return {"response": post_dict}
+                            detail=f"post with id {post_id} does not found.")
+    return {"response": updated_post}
