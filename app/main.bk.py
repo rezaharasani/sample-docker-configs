@@ -47,31 +47,28 @@ def root():
 
 @app.get("/sqlalchemy")
 def test_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
-    return {"message": posts}
+    return {"message": "welcome to sqlalchemy"}
 
 
 @app.get("/posts", status_code=status.HTTP_200_OK)
-def get_posts(db: Session = Depends(get_db)):
-    """Get all posts"""
-    posts = db.query(models.Post).all()
+def get_posts():
+    cursor.execute("""SELECT * FROM posts ORDER BY id ASC;""")
+    posts = cursor.fetchall()
     return {"response": posts}
 
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_posts(post: Post, db: Session = Depends(get_db)):
-    """Create a new post"""
-    new_post = models.Post(
-        title=post.title, content=post.content, published=post.published)
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
+def create_posts(post: Post):
+    cursor.execute(
+        """INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *;""",
+        (post.title, post.content, post.published))
+    new_post = cursor.fetchone()
+    conn.commit()
     return {"response": new_post}
 
 
 @app.get("/posts/latest", status_code=status.HTTP_200_OK)
 def get_latest_post():
-    """Get latest post"""
     cursor.execute("""SELECT * FROM posts ORDER BY created_at DESC LIMIT 1;""")
     latest_post = cursor.fetchone()
 
@@ -82,7 +79,6 @@ def get_latest_post():
 
 @app.get("/posts/{post_id}")
 def get_post(post_id: int):
-    """Get post by id"""
     cursor.execute("""SELECT * FROM posts WHERE id = %s;""", (str(post_id),))
     post = cursor.fetchone()
     if post is None:
@@ -93,7 +89,6 @@ def get_post(post_id: int):
 
 @app.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(post_id: int):
-    """Delete post by id"""
     cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *;""", (str(post_id),))
     deleted_post = cursor.fetchone()
     conn.commit()
@@ -106,7 +101,6 @@ def delete_post(post_id: int):
 
 @app.put("/posts/{post_id}", status_code=status.HTTP_201_CREATED)
 def update_post(post_id: int, post: Post):
-    """Update post"""
     cursor.execute(
         """UPDATE posts SET title = %s, content = %s, published = %s 
                 WHERE id = %s RETURNING *;""",
