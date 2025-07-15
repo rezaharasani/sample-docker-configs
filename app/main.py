@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import FastAPI, status, Response, HTTPException, Depends
 from sqlalchemy.orm import Session
-from . import models, schemas
+from . import models, schemas, utils
 from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
@@ -18,7 +18,7 @@ def root():
 @app.get("/posts",
          status_code=status.HTTP_200_OK,
          response_model=List[schemas.Post]
-)
+         )
 def get_posts(db: Session = Depends(get_db)):
     """Get all posts"""
     posts = db.query(models.Post).order_by(models.Post.id).all()
@@ -28,7 +28,7 @@ def get_posts(db: Session = Depends(get_db)):
 @app.post("/posts",
           status_code=status.HTTP_201_CREATED,
           response_model=schemas.Post
-)
+          )
 def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
     """Create a new post"""
     new_post = models.Post(**post.model_dump())
@@ -41,7 +41,7 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
 @app.get("/posts/latest",
          status_code=status.HTTP_200_OK,
          response_model=schemas.Post
-)
+         )
 def get_latest_post(db: Session = Depends(get_db)):
     """Get latest post"""
     lastest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
@@ -53,7 +53,7 @@ def get_latest_post(db: Session = Depends(get_db)):
 
 @app.get("/posts/{post_id}",
          response_model=schemas.Post
-)
+         )
 def get_post(post_id: int, db: Session = Depends(get_db)):
     """Get post by id"""
     post = db.query(models.Post).filter(models.Post.id == post_id).first()
@@ -66,7 +66,7 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/posts/{post_id}",
             status_code=status.HTTP_204_NO_CONTENT
-)
+            )
 def delete_post(post_id: int, db: Session = Depends(get_db)):
     """Delete post by id"""
     post_query = db.query(models.Post).filter(models.Post.id == post_id)
@@ -83,7 +83,7 @@ def delete_post(post_id: int, db: Session = Depends(get_db)):
 @app.put("/posts/{post_id}",
          status_code=status.HTTP_201_CREATED,
          response_model=schemas.Post
-)
+         )
 def update_post(post_id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     """Update post"""
     post_query = db.query(models.Post).filter(models.Post.id == post_id)
@@ -96,3 +96,30 @@ def update_post(post_id: int, post: schemas.PostCreate, db: Session = Depends(ge
                                                                    synchronize_session=False)
     db.commit()
     return post_query.first()
+
+
+@app.get("/users",
+         status_code=status.HTTP_200_OK,
+         response_model=List[schemas.UserOut]
+         )
+def get_users(db: Session = Depends(get_db)):
+    """Get all users from database"""
+    users = db.query(models.User).order_by(models.User.created_at).all()
+    return users
+
+
+@app.post("/users",
+          status_code=status.HTTP_201_CREATED,
+          response_model=schemas.UserOut
+          )
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """Create new user into database"""
+    hashed_password = utils.hash_password(user.password)
+    user.password = hashed_password
+
+    new_user = models.User(**user.model_dump())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
