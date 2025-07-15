@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, utils
 from ..database import get_db
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/users"
+)
 
 
-@router.get("/users",
+@router.get("/",
             status_code=status.HTTP_200_OK,
             response_model=List[schemas.UserOut]
             )
@@ -17,7 +19,7 @@ def get_users(db: Session = Depends(get_db)):
     return users
 
 
-@router.get("/users/{user_id}",
+@router.get("/{user_id}",
             status_code=status.HTTP_200_OK,
             response_model=schemas.UserOut
             )
@@ -30,7 +32,7 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/users",
+@router.post("/",
              status_code=status.HTTP_201_CREATED,
              response_model=schemas.UserOut
              )

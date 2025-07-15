@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, utils
 from ..database import get_db
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/posts",
+)
 
 
-@router.get("/posts",
+@router.get("/",
             status_code=status.HTTP_200_OK,
             response_model=List[schemas.PostOut]
             )
@@ -17,7 +19,7 @@ def get_posts(db: Session = Depends(get_db)):
     return posts
 
 
-@router.post("/posts",
+@router.post("/",
              status_code=status.HTTP_201_CREATED,
              response_model=schemas.PostOut
              )
@@ -30,7 +32,7 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
     return new_post
 
 
-@router.get("/posts/latest",
+@router.get("/latest",
             status_code=status.HTTP_200_OK,
             response_model=schemas.PostOut
             )
@@ -43,7 +45,7 @@ def get_latest_post(db: Session = Depends(get_db)):
     return lastest_post
 
 
-@router.get("/posts/{post_id}",
+@router.get("/{post_id}",
             response_model=schemas.PostOut
             )
 def get_post_by_id(post_id: int, db: Session = Depends(get_db)):
@@ -56,7 +58,7 @@ def get_post_by_id(post_id: int, db: Session = Depends(get_db)):
     return post
 
 
-@router.delete("/posts/{post_id}",
+@router.delete("/{post_id}",
                status_code=status.HTTP_204_NO_CONTENT
                )
 def delete_post(post_id: int, db: Session = Depends(get_db)):
@@ -72,7 +74,7 @@ def delete_post(post_id: int, db: Session = Depends(get_db)):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/posts/{post_id}",
+@router.put("/{post_id}",
             status_code=status.HTTP_201_CREATED,
             response_model=schemas.PostOut
             )
