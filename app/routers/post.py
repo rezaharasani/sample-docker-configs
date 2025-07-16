@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import status, Response, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
-from .. import models, schemas, utils
+from .. import models, schemas, oauth2
 from ..database import get_db
 
 router = APIRouter(
@@ -12,21 +12,23 @@ router = APIRouter(
 
 @router.get("/",
             status_code=status.HTTP_200_OK,
-            response_model=List[schemas.PostOut]
+            response_model=List[schemas.Post],
             )
-def get_posts(db: Session = Depends(get_db)):
-    """Get all posts"""
+def get_posts(db: Session = Depends(get_db),
+              current_user=Depends(oauth2.get_current_user)
+              ):
     posts = db.query(models.Post).order_by(models.Post.id).all()
     return posts
 
 
 @router.post("/",
              status_code=status.HTTP_201_CREATED,
-             response_model=schemas.PostOut
+             response_model=schemas.Post
              )
-def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
-    """Create a new post"""
-    new_post = models.Post(**post.model_dump())
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db),
+                current_user=Depends(oauth2.get_current_user)
+                ):
+    new_post = models.Post(owner_id=current_user.id, **post.model_dump())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -35,9 +37,11 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
 
 @router.get("/latest",
             status_code=status.HTTP_200_OK,
-            response_model=schemas.PostOut
+            response_model=schemas.Post
             )
-def get_latest_post(db: Session = Depends(get_db)):
+def get_latest_post(db: Session = Depends(get_db),
+                    current_user=Depends(oauth2.get_current_user)
+                    ):
     """Get latest post"""
     lastest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
 
@@ -47,10 +51,11 @@ def get_latest_post(db: Session = Depends(get_db)):
 
 
 @router.get("/{post_id}",
-            response_model=schemas.PostOut
+            response_model=schemas.Post
             )
-def get_post_by_id(post_id: int, db: Session = Depends(get_db)):
-    """Get post by id"""
+def get_post_by_id(post_id: int, db: Session = Depends(get_db),
+                   current_user=Depends(oauth2.get_current_user)
+                   ):
     post = db.query(models.Post).filter(models.Post.id == post_id).first()
 
     if not post:
@@ -62,13 +67,19 @@ def get_post_by_id(post_id: int, db: Session = Depends(get_db)):
 @router.delete("/{post_id}",
                status_code=status.HTTP_204_NO_CONTENT
                )
-def delete_post(post_id: int, db: Session = Depends(get_db)):
-    """Delete post by id"""
+def delete_post(post_id: int, db: Session = Depends(get_db),
+                current_user=Depends(oauth2.get_current_user)
+                ):
     post_query = db.query(models.Post).filter(models.Post.id == post_id)
+    first_matched = post_query.first()
 
-    if post_query.first() is None:
+    if first_matched is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {post_id} does not found.")
+
+    if first_matched.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You are not the owner of the post.")
 
     post_query.delete(synchronize_session=False)
     db.commit()
@@ -77,17 +88,22 @@ def delete_post(post_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{post_id}",
             status_code=status.HTTP_201_CREATED,
-            response_model=schemas.PostOut
+            response_model=schemas.Post
             )
-def update_post(post_id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
-    """Update post"""
-    post_query = db.query(models.Post).filter(models.Post.id == post_id)
+def update_post(post_id: int, post: schemas.PostCreate,
+                db: Session = Depends(get_db),
+                current_user=Depends(oauth2.get_current_user)
+                ):
+    db_query = db.query(models.Post).filter(models.Post.id == post_id)
 
-    if post_query.first() is None:
+    if db_query.first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {post_id} does not found.")
 
-    db.query(models.Post).filter(models.Post.id == post_id).update(post.model_dump(),
-                                                                   synchronize_session=False)
+    if db_query.first().owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You are not the owner of the post.")
+
+    db_query.update(post.model_dump(), synchronize_session=False)
     db.commit()
-    return post_query.first()
+    return db_query.first()
