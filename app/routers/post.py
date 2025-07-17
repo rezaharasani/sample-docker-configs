@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import status, Response, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from .. import models, schemas, oauth2
@@ -15,9 +15,12 @@ router = APIRouter(
             response_model=List[schemas.Post],
             )
 def get_posts(db: Session = Depends(get_db),
-              current_user=Depends(oauth2.get_current_user)
+              current_user=Depends(oauth2.get_current_user),
+              limit: int = 100, offset: int = 0, search: Optional[str] = "",
               ):
-    posts = db.query(models.Post).order_by(models.Post.id).all()
+    posts = db.query(models.Post).filter(
+        models.Post.title.icontains(search).__or__(models.Post.content.icontains(search))).order_by(
+        models.Post.id.desc()).limit(limit).offset(offset).all()
     return posts
 
 
@@ -47,6 +50,7 @@ def get_latest_post(db: Session = Depends(get_db),
 
     if lastest_post is None:
         return {"response": f"There is no post yet."}
+
     return lastest_post
 
 
@@ -61,6 +65,11 @@ def get_post_by_id(post_id: int, db: Session = Depends(get_db),
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {post_id} does not found.")
+
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You are not the owner of the post.")
+
     return post
 
 
