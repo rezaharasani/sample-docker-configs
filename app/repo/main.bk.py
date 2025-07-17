@@ -5,8 +5,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
 from sqlalchemy.orm import Session
-from . import models
-from .database import engine, get_db
+from app import models
+from app.database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
