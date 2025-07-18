@@ -1,10 +1,24 @@
 services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    hostname: postgres
+    volumes:
+      - ~/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: metabase
+      POSTGRES_DB: metabaseappdb
+      POSTGRES_PASSWORD: mysecretpassword
+      PGDATA: /var/lib/postgresql/data/pgdata
+    networks:
+      - metanet1
+
   metabase:
     image: metabase/metabase:latest
     container_name: metabase
     hostname: metabase
     volumes:
-      - /dev/urandom:/dev/random:ro
+      - ~/metabase-data:/metabase-data
     ports:
       - 3000:3000
     environment:
@@ -14,6 +28,7 @@ services:
       MB_DB_USER: metabase
       MB_DB_PASS: mysecretpassword
       MB_DB_HOST: postgres
+      MB_DB_FILE: /metabase-data/metabase.db
     networks:
       - metanet1
     healthcheck:
@@ -21,16 +36,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-  postgres:
-    image: postgres:latest
-    container_name: postgres
-    hostname: postgres
-    environment:
-      POSTGRES_USER: metabase
-      POSTGRES_DB: metabaseappdb
-      POSTGRES_PASSWORD: mysecretpassword
-    networks:
-      - metanet1
+
 networks:
   metanet1:
     driver: bridge
