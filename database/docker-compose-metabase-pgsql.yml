@@ -5,9 +5,11 @@ services:
     hostname: postgres
     volumes:
       - ~/pgdata:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
     environment:
-      POSTGRES_USER: metabase
       POSTGRES_DB: metabaseappdb
+      POSTGRES_USER: metabase
       POSTGRES_PASSWORD: mysecretpassword
       PGDATA: /var/lib/postgresql/data/pgdata
     networks:
