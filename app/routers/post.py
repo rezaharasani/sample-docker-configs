@@ -19,14 +19,17 @@ def get_posts(db: Session = Depends(get_db),
               current_user=Depends(oauth2.get_current_user),
               limit: int = 100, offset: int = 0, search: Optional[str] = ""
               ):
-    # posts = db.query(models.Post).filter(
-    #     models.Post.title.icontains(search).__or__(models.Post.content.icontains(search))).order_by(
-    #     models.Post.id.desc()).limit(limit).offset(offset).all()
+    response = db. \
+        query(models.Post, func.count(models.Vote.post_id).label("votes")). \
+        join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True). \
+        group_by(models.Post.id). \
+        filter(models.Post.title.icontains(search).__or__(models.Post.content.icontains(search))). \
+        order_by(models.Post.created_at.desc()). \
+        limit(limit). \
+        offset(offset). \
+        all()
 
-    posts = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
-        models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id).all()
-
-    return posts
+    return response
 
 
 @router.post("/",
@@ -47,9 +50,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db),
             status_code=status.HTTP_200_OK,
             response_model=schemas.Post
             )
-def get_latest_post(db: Session = Depends(get_db),
-                    current_user=Depends(oauth2.get_current_user)
-                    ):
+def get_latest_post(db: Session = Depends(get_db)):
     """Get latest post"""
     lastest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
 
@@ -60,22 +61,28 @@ def get_latest_post(db: Session = Depends(get_db),
 
 
 @router.get("/{post_id}",
-            response_model=schemas.Post
+            status_code=status.HTTP_200_OK,
+            response_model=schemas.PostOut
             )
 def get_post_by_id(post_id: int, db: Session = Depends(get_db),
                    current_user=Depends(oauth2.get_current_user)
                    ):
-    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    response = db. \
+        query(models.Post, func.count(models.Vote.post_id).label("votes")). \
+        join(models.Vote, models.Vote.post_id == models.Post.id, isouter=True). \
+        group_by(models.Post.id). \
+        filter(models.Post.id == post_id). \
+        first()
 
-    if not post:
+    if response is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {post_id} does not found.")
-
+    post = response[0]
     if post.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You are not the owner of the post.")
 
-    return post
+    return response
 
 
 @router.delete("/{post_id}",
