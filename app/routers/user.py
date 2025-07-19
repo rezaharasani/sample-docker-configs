@@ -44,6 +44,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db),
                 current_user: int = Depends(oauth2.get_current_user)
                 ):
     """Create new user into database"""
+    print(" ************ Creating new user")
     hashed_password = utils.hash_password(user.password)
     user.password = hashed_password
 

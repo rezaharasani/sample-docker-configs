@@ -84,7 +84,7 @@ if __name__ == '__main__':
     conn, cursor = make_connection(
         message="Retrieving table data connection was established! Keep going :)")
 
-    cursor.execute("""SELECT * FROM posts ORDER BY id ASC;""")
+    cursor.execute("""SELECT * FROM users ORDER BY id ASC;""")
     print(cursor.fetchall())
 
     # display_recodes(conn, cursor)
