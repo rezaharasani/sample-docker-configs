@@ -19,7 +19,7 @@ def make_connection(message: str = "Database connection was established!. Let's 
     while True:
         try:
             # create connection with fastapi database
-            conn = psycopg2.connect(host="localhost", database="fastapi", user="postgres",
+            conn = psycopg2.connect(host="172.16.112.149", database="metabasedb", user="metabase", port="5433",
                                     password="password123", cursor_factory=RealDictCursor)
 
             logger.info(f"{__name__}: {message}")
@@ -83,7 +83,11 @@ def is_deleted(conn, cursor, post_id: int):
 if __name__ == '__main__':
     conn, cursor = make_connection(
         message="Retrieving table data connection was established! Keep going :)")
-    display_recodes(conn, cursor)
+
+    cursor.execute("""SELECT * FROM posts ORDER BY id ASC;""")
+    print(cursor.fetchall())
+
+    # display_recodes(conn, cursor)
 
     # conn, cursor = make_connection(
     #   message="Deleting connection was established! Keep going :)")
